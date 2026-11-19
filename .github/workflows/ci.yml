@@ -35,7 +35,9 @@ jobs:
 
   # The golden-set evaluation (Module 5): asks Ask Copper every question in
   # lib/evals/golden-set.ts, an AI judge grades the answers, and the scores go
-  # to Langfuse. Fails when fewer than 80% of the answers pass.
+  # to Langfuse. It runs the two agents the app ships and, for comparison, one
+  # agent with every tool; the table is on the run's summary page. Fails when
+  # fewer than 80% of the shipped setup's answers pass.
   # The keys are the repo's Actions secrets (Settings > Secrets and variables).
   eval:
     name: Golden-set eval

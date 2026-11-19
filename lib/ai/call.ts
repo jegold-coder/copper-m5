@@ -66,9 +66,22 @@ function languageModel(model: ModelId) {
   return google()(id);
 }
 
+const listeners = new Set<(row: AiCallRow) => void>();
+
+/**
+ * Calls `listener` with the row of every model call as it finishes. Returns a
+ * function that stops listening. The evaluation uses it to add up the tokens
+ * and cost of one question.
+ */
+export function onAiCall(listener: (row: AiCallRow) => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
 /** Prints one line per model call, so the cost and time are visible. */
 async function logCall(row: AiCallRow): Promise<void> {
   console.info("[ai_calls]", JSON.stringify(row));
+  for (const listener of listeners) listener(row);
 }
 
 /**

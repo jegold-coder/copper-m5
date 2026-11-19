@@ -4,6 +4,11 @@ import { describe, expect, it } from "vitest";
 import { checkCase, type RunResult } from "@/lib/evals/checks";
 import { GOLDEN_SET } from "@/lib/evals/golden-set";
 import { withRetry } from "@/lib/evals/retry";
+import { measure } from "@/lib/evals/usage";
+import {
+  singleAgentInstructions,
+  singleAgentTools,
+} from "@/lib/copper/assistant/single-agent";
 
 const byId = (id: string) => GOLDEN_SET.find((c) => c.id === id)!;
 
@@ -103,5 +108,47 @@ describe("withRetry", () => {
       ),
     ).rejects.toThrow("quota");
     expect(calls).toBe(2);
+  });
+});
+
+describe("a single agent", () => {
+  it("is not checked for who answered, since it has no handoff", () => {
+    const failures = checkCase(byId("refund-auto"), {
+      reply: "Refunded.",
+      tools: ["get_orders", "request_refund"],
+    });
+    expect(failures).toEqual([]);
+  });
+
+  it("has every tool and no handoff on the Support page", () => {
+    const names = Object.keys(singleAgentTools({ limitUsd: 50, refunds: [] }));
+    expect(names).toEqual(
+      expect.arrayContaining([
+        "search_docs",
+        "calculate_cost",
+        "get_orders",
+        "request_refund",
+      ]),
+    );
+    expect(names).not.toContain("transfer_to_refund_agent");
+    expect(names).not.toContain("transfer_to_copper");
+  });
+
+  it("has no refund tools or refund rules off the Support page", () => {
+    expect(Object.keys(singleAgentTools())).not.toContain("request_refund");
+    expect(singleAgentInstructions()).not.toContain("request_refund");
+    expect(singleAgentInstructions({ limitUsd: 50, refunds: [] })).toContain(
+      "request_refund",
+    );
+  });
+});
+
+describe("measure", () => {
+  it("returns the value and how long it took", async () => {
+    // Nothing here calls a model, so it counts none.
+    const { value, usage } = await measure(async () => "done");
+    expect(value).toBe("done");
+    expect(usage.modelCalls).toBe(0);
+    expect(usage.seconds).toBeGreaterThanOrEqual(0);
   });
 });

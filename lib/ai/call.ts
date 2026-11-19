@@ -71,6 +71,20 @@ async function logCall(row: AiCallRow): Promise<void> {
   console.info("[ai_calls]", JSON.stringify(row));
 }
 
+/**
+ * Names the call in Langfuse: the trace is called after the feature
+ * ("ask-copper", "refund-agent") and carries the module number.
+ */
+function telemetryFor(info: CallInfo) {
+  return {
+    runtimeContext: { module: info.module },
+    telemetry: {
+      functionId: info.feature,
+      includeRuntimeContext: { module: true },
+    },
+  } as const;
+}
+
 type Usage = { inputTokens?: number; outputTokens?: number };
 
 /** Builds the ai_calls row for a call that started at `started`. */
@@ -114,7 +128,11 @@ async function tracked<T extends { usage: Usage }>(
 /** Generates text. Example: callText({ module: 3, feature: "support-answer" }, { prompt }) */
 export async function callText(info: CallInfo, options: TextOptions) {
   return tracked(info, (model) =>
-    generateText({ ...options, model: languageModel(model) }),
+    generateText({
+      ...telemetryFor(info),
+      ...options,
+      model: languageModel(model),
+    }),
   );
 }
 
@@ -126,6 +144,7 @@ export async function callObject<Schema extends z.ZodType>(
   const { schema, ...rest } = options;
   const result = await tracked(info, (model) =>
     generateText({
+      ...telemetryFor(info),
       ...rest,
       model: languageModel(model),
       output: Output.object({ schema }),
@@ -162,6 +181,7 @@ export async function callEmbedMany(
     const result = await embedMany({
       model: google().embedding(EMBEDDING_MODEL.slice("google/".length)),
       values,
+      telemetry: { functionId: info.feature },
       providerOptions: {
         google: { outputDimensionality: EMBEDDING_DIMENSIONS },
       },
@@ -188,6 +208,7 @@ export function callStream(info: CallInfo, options: StreamOptions) {
   const model = info.model ?? defaultModel();
   const row = rowFor(info, model, performance.now());
   return streamText({
+    ...telemetryFor(info),
     ...options,
     model: languageModel(model),
     onFinish: ({ totalUsage }) => logCall(row(true, totalUsage)),

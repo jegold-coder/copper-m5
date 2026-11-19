@@ -171,3 +171,25 @@ the tests and a golden-set evaluation with an AI judge run in GitHub Actions
 on every pull request, with `main` protected; every AI call is traced in
 Langfuse; and one support agent that does everything is compared with the two
 agents on the same golden set. Langfuse is the only eval and monitoring tool.
+
+## Module 5, Part 2: tracing in Langfuse
+
+**Summary:** Every AI call is traced in Langfuse: which agent answered, its
+tool calls, tokens, cost and time. With no Langfuse keys nothing is sent and
+the app runs as before.
+
+**Data flow:** `instrumentation.ts` runs when the server starts. If
+`LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` are set, it registers the AI
+SDK's OpenTelemetry integration (`@ai-sdk/otel`) and a Langfuse span
+processor (`@langfuse/otel`). `lib/ai/call.ts` names each call by its feature
+(`ask-copper`, `refund-agent`) and adds the module number, so the trace shows
+which agent ran. Tool calls and token counts come from the AI SDK itself.
+
+**Decisions and trade-offs:** Tracing lives in the one wrapper every call goes
+through, so no feature needs its own code. On Vercel spans are sent at once,
+because a function can freeze right after replying. Chat text is recorded in
+traces; turn that off with `telemetry.recordInputs` if a feature handles
+private data.
+
+**Risks and open questions:** Traces hold customer messages. The Langfuse
+project is the place to control who can read them.

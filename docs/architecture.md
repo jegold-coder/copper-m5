@@ -229,3 +229,40 @@ wrong, so a score is a signal to read the trace, not a verdict.
 pass rate by 6 points. Add a case whenever a real customer question goes
 wrong. Judge and answers come from the same model family, which can flatter
 itself.
+
+## Module 5, Part 4: one agent or two
+
+**Summary:** The golden set runs on two setups: the app's **two agents**
+(Copper and the Refund agent, with a handoff) and **one agent with every
+tool** and no handoff (`lib/copper/assistant/single-agent.ts`). Both are graded
+the same way and recorded in Langfuse as two runs on the same dataset
+(`ask-copper-golden-set`), so Langfuse can compare them side by side. The app
+itself still uses two agents.
+
+**Data flow:** `evals/golden-set.eval.ts` puts the 16 cases in Langfuse as a
+dataset, then runs each setup (`lib/evals/setups.ts`) one question at a time.
+Each question's model calls, tokens, cost and time are added up
+(`lib/evals/usage.ts`, using `onAiCall` in `lib/ai/call.ts`) and saved as
+scores next to the judge's score. Only the shipped setup can fail the run.
+
+**One run on the 16 questions:**
+
+| Setup | Pass rate | Judge (1-5) | Time / question | Tokens / question | Model calls | Cost / question |
+|---|---|---|---|---|---|---|
+| Two agents (Copper + Refund agent) | 100% | 4.88 | 2.8 s | 2990 | 1.7 | $0.00200 |
+| One agent with every tool | 88% | 4.75 | 2.7 s | 3125 | 1.4 | $0.00225 |
+
+**Decisions and trade-offs:** Ship the two agents for now. They passed every
+question, cost about 12% less per question, and keep the refund tools out of
+Copper's reach: a general chat question can't call `request_refund`. The
+single agent is simpler (no handoff, one prompt) and as fast, but every call
+carries every tool and every rule, so each call is bigger. Its two misses were
+small: it skipped `get_orders` before refunding an order the customer had
+already numbered (correct answer, but the code check wants the order looked
+up), and it left out the heat-damage exclusion in a warranty answer.
+
+**Risks and open questions:** 16 questions is a small sample, and one run
+varies: a gap of two questions is a hint, not proof. Run it a few times
+before relying on it, and add cases where the setups disagree. The judge is
+Gemini grading Gemini. Cost here is the free-tier Flash-Lite price list in
+`lib/ai/pricing.ts`.

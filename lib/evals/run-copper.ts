@@ -3,11 +3,12 @@
 import { finalValue } from "@/lib/ai/live";
 import { askCopper } from "@/lib/copper/assistant/ask";
 import { toolCallsOf } from "@/lib/copper/assistant/progress";
-import { withRetry } from "@/lib/evals/retry";
 import type { RunResult } from "@/lib/evals/checks";
 import type { GoldenCase } from "@/lib/evals/golden-set";
+import { withRetry } from "@/lib/evals/retry";
+import { measure } from "@/lib/evals/usage";
 
-/** The current setup: Copper, plus the Refund agent on the Support page. */
+/** Setup A, the app today: Copper, plus the Refund agent on the Support page. */
 export function runTwoAgents(c: GoldenCase): Promise<RunResult> {
   // askCopper turns a failed model call into a "Sorry" reply. Here that is a
   // failure of the run, not an answer to grade, so retry it.
@@ -15,16 +16,19 @@ export function runTwoAgents(c: GoldenCase): Promise<RunResult> {
 }
 
 async function ask(c: GoldenCase): Promise<RunResult> {
-  const { progress } = await askCopper({
-    messages: [{ role: "user", content: c.question }],
-    useTools: true,
-    desk: c.desk,
+  const { value: done, usage } = await measure(async () => {
+    const { progress } = await askCopper({
+      messages: [{ role: "user", content: c.question }],
+      useTools: true,
+      desk: c.desk,
+    });
+    return finalValue(progress);
   });
-  const done = await finalValue(progress);
   if (done.status === "error") throw new Error("Ask Copper failed to answer");
   return {
     reply: done.reply,
     agent: done.agent ?? "copper",
     tools: toolCallsOf(done).map((call) => call.name),
+    usage,
   };
 }

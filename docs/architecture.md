@@ -193,3 +193,39 @@ private data.
 
 **Risks and open questions:** Traces hold customer messages. The Langfuse
 project is the place to control who can read them.
+
+## Module 5, Part 3: the golden-set evaluation
+
+**Summary:** A set of 16 questions with known good answers grades Ask Copper.
+The same evaluation runs on your machine (`npm run eval`) and in GitHub Actions
+on every pull request. The scores are kept in Langfuse.
+
+| Piece | Where | What it does |
+|---|---|---|
+| Golden set | `lib/evals/golden-set.ts` | Each case: the question, the facts a good answer states (`reference`), tools it must call, text it must never say, who should answer |
+| Code checks | `lib/evals/checks.ts` | Exact, free checks: tools used, the agent that answered, forbidden text |
+| AI judge | `lib/evals/judge.ts` | Gemini grades each answer 1 to 5 against the reference, through `lib/ai/call.ts` |
+| Runner | `lib/evals/run-copper.ts` | Sends a question through `askCopper`, as the chat panel does |
+| Experiment | `evals/golden-set.eval.ts` | Runs every case as a Langfuse experiment: traces, `judge_score`, `code_checks`, `passed`, and run-level `pass_rate` |
+
+**Data flow:** question → `askCopper` (Copper, and the Refund agent when the
+case has a Refund Console `desk`) → reply, agent and tools used → code checks
+and the judge → scores in Langfuse. A case passes when the code checks pass and
+the judge gives at least 4. The run fails when fewer than 80% of the cases
+pass (`EVAL_MIN_PASS_RATE` changes that).
+
+**In CI:** the `Golden-set eval` job in `.github/workflows/ci.yml` runs
+`npm run eval` with the keys from the repo's Actions secrets. The
+`All checks pass` job needs it, and branch protection requires that job, so a
+pull request that makes Copper worse can't merge.
+
+**Decisions and trade-offs:** Code checks catch what must be exact (the right
+tool, no leaked playbook); the judge catches what words can't. Questions run
+one at a time with retries, because a free Google key allows only so many
+requests a minute: the run takes about 2 to 3 minutes. An AI judge can be
+wrong, so a score is a signal to read the trace, not a verdict.
+
+**Risks and open questions:** 16 cases is small: one wrong answer moves the
+pass rate by 6 points. Add a case whenever a real customer question goes
+wrong. Judge and answers come from the same model family, which can flatter
+itself.

@@ -42,6 +42,7 @@ They're optional until a module needs them. Put them in `.env.local` (never comm
 | ------------------------------------ | ----------------------------------------------------- |
 | `npm run dev`                        | Start the dev server                                  |
 | `npm test`                           | Run the app's tests                                   |
+| `npm run eval`                       | Grade Ask Copper on the golden set (needs all keys)   |
 | `npm run lint` / `npm run typecheck` | Check code style and types                            |
 | `npm run format`                     | Format the code with Prettier                         |
 | `npm run start-module`               | One-time setup after cloning a module branch          |

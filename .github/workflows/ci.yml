@@ -33,13 +33,35 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  # The golden-set evaluation (Module 5): asks Ask Copper every question in
+  # lib/evals/golden-set.ts, an AI judge grades the answers, and the scores go
+  # to Langfuse. Fails when fewer than 80% of the answers pass.
+  # The keys are the repo's Actions secrets (Settings > Secrets and variables).
+  eval:
+    name: Golden-set eval
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}
+      LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+      LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+      LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run eval
+
   # One required check that goes green only when every job above passed.
   # Branch protection requires this name, so new jobs (like the Module 5
   # golden-set eval) only need to be added to `needs`.
   all-checks-pass:
     name: All checks pass
     if: always()
-    needs: [check]
+    needs: [check, eval]
     runs-on: ubuntu-latest
     steps:
       - name: Fail unless every required job succeeded

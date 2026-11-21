@@ -9,6 +9,7 @@
 // talking. Copper can hand the conversation to the Refund agent, a second
 // agent with its own instructions and tools, and the Refund agent can hand it
 // back. The agent that ends the turn answers the next message too.
+import { startActiveObservation } from "@langfuse/tracing";
 import { hasToolCall, stepCountIs } from "ai";
 import { callStream, THOUGHT_SUMMARIES } from "@/lib/ai/call";
 import { createLive, type Live } from "@/lib/ai/live";
@@ -191,7 +192,13 @@ export async function askCopper({
   }
 
   // Read the stream in the background, so the panel gets the first update now.
-  void (async () => {
+  // The whole chat turn is one Langfuse trace, so Copper, the Refund agent and
+  // their tools show together (a no-op when tracing is off).
+  void startActiveObservation("ask-copper-chat", async (chat) => {
+    chat.update({
+      input: messages.at(-1)?.content,
+      metadata: { useTools, firstAgent: first, supportPage: Boolean(desk) },
+    });
     try {
       if (!useTools) {
         // Without tools, send no instructions either: "always use your
@@ -224,8 +231,12 @@ export async function askCopper({
       progress.status = "error";
       if (!progress.reply.trim()) progress.reply = SORRY;
     }
+    chat.update({
+      output: progress.reply,
+      metadata: { agent: progress.agent, status: progress.status },
+    });
     done(snapshot());
-  })();
+  });
 
   return { progress: live };
 }

@@ -44,3 +44,5 @@ next-env.d.ts
 .grading/
 .vitest-cache/
 
+# golden-set eval report (CI)
+/eval-summary.md

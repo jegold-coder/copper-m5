@@ -248,24 +248,31 @@ Each question's model calls, tokens, cost and time are added up
 (`lib/evals/usage.ts`, using `onAiCall` in `lib/ai/call.ts`) and saved as
 scores next to the judge's score. Only the shipped setup can fail the run.
 
-**One run on the 16 questions:**
+**Two runs on the 16 questions** (the first on a laptop, the second in GitHub
+Actions on a pull request):
 
-| Setup | Pass rate | Judge (1-5) | Time / question | Tokens / question | Model calls | Cost / question |
-|---|---|---|---|---|---|---|
-| Two agents (Copper + Refund agent) | 100% | 4.88 | 2.8 s | 2990 | 1.7 | $0.00200 |
-| One agent with every tool | 88% | 4.75 | 2.7 s | 3125 | 1.4 | $0.00225 |
+| Setup | Run | Pass rate | Judge (1-5) | Time / question | Tokens / question | Model calls | Cost / question |
+|---|---|---|---|---|---|---|---|
+| Two agents (Copper + Refund agent) | 1 | 100% | 4.88 | 2.8 s | 2990 | 1.7 | $0.00200 |
+| Two agents (Copper + Refund agent) | 2 | 94% | 4.50 | 5.6 s | 3154 | 1.7 | $0.00232 |
+| One agent with every tool | 1 | 88% | 4.75 | 2.7 s | 3125 | 1.4 | $0.00225 |
+| One agent with every tool | 2 | 100% | 4.88 | 5.5 s | 3208 | 1.4 | $0.00195 |
 
-**Decisions and trade-offs:** Ship the two agents for now. They passed every
-question, cost about 12% less per question, and keep the refund tools out of
-Copper's reach: a general chat question can't call `request_refund`. The
-single agent is simpler (no handoff, one prompt) and as fast, but every call
-carries every tool and every rule, so each call is bigger. Its two misses were
-small: it skipped `get_orders` before refunding an order the customer had
-already numbered (correct answer, but the code check wants the order looked
-up), and it left out the heat-damage exclusion in a warranty answer.
+**Decisions and trade-offs:** On these numbers the two setups are a tie. Each
+led on pass rate in one run, the cost per question swapped places, and the
+speed is the same (the difference between runs is Gemini's own speed that
+day, not the setup). So the numbers can't pick a winner; the design can.
+Ship the two agents: the refund tools stay out of Copper's reach, so a
+general chat question can never call `request_refund`, and each agent's
+prompt stays small and focused. The single agent is simpler (no handoff, one
+prompt) and makes fewer model calls (1.4 against 1.7), but every call
+carries every tool and every rule. Its misses in run 1 were small: it skipped
+`get_orders` before refunding an order the customer had already numbered
+(a correct answer, but the code check wants the order looked up), and it left
+out the heat-damage exclusion in a warranty answer.
 
-**Risks and open questions:** 16 questions is a small sample, and one run
-varies: a gap of two questions is a hint, not proof. Run it a few times
-before relying on it, and add cases where the setups disagree. The judge is
-Gemini grading Gemini. Cost here is the free-tier Flash-Lite price list in
+**Risks and open questions:** 16 questions is a small sample, and one question
+moves the pass rate by 6 points. Run the evaluation several times and add
+cases where the setups disagree before trusting a gap. The judge is Gemini
+grading Gemini. Cost here is the free-tier Flash-Lite price list in
 `lib/ai/pricing.ts`.

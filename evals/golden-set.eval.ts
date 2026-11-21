@@ -11,7 +11,7 @@
 //   EVAL_MIN_PASS_RATE=0.9 npm run eval
 //
 // Runs in GitHub Actions on every pull request (see .github/workflows/ci.yml).
-import { appendFileSync, existsSync } from "node:fs";
+import { appendFileSync, existsSync, writeFileSync } from "node:fs";
 import { LangfuseClient } from "@langfuse/client";
 import { describe, expect, it } from "vitest";
 import { startTracing } from "@/lib/ai/tracing";
@@ -218,15 +218,21 @@ describe.skipIf(!ready && !process.env.CI)("golden set", () => {
 
   it("compares the setups", () => {
     if (summaries.length < 2) return;
-    const table = comparison();
-    console.log(`\n${table}\n`);
-    for (const s of summaries)
-      if (s.url) console.log(`${s.setup.id}: ${s.url}`);
-    // Shows on the GitHub Actions run page.
+    const report = [
+      "## Golden set: one agent vs two agents",
+      "",
+      comparison(),
+      "",
+      ...summaries.flatMap((s) =>
+        s.url ? [`- [${s.setup.id} in Langfuse](${s.url})`] : [],
+      ),
+      "",
+    ].join("\n");
+    console.log(`\n${report}`);
+    // On the GitHub Actions run page, and (via the workflow) as a comment on
+    // the pull request.
     if (process.env.GITHUB_STEP_SUMMARY)
-      appendFileSync(
-        process.env.GITHUB_STEP_SUMMARY,
-        `## Golden set: one agent vs two agents\n\n${table}\n`,
-      );
+      appendFileSync(process.env.GITHUB_STEP_SUMMARY, report);
+    if (process.env.CI) writeFileSync("eval-summary.md", report);
   });
 });

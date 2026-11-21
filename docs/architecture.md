@@ -184,6 +184,9 @@ SDK's OpenTelemetry integration (`@ai-sdk/otel`) and a Langfuse span
 processor (`@langfuse/otel`). `lib/ai/call.ts` names each call by its feature
 (`ask-copper`, `refund-agent`) and adds the module number, so the trace shows
 which agent ran. Tool calls and token counts come from the AI SDK itself.
+Each chat turn in `askCopper` is wrapped in one `ask-copper-chat` trace, so
+Copper, the handoff and the Refund agent appear together under one root, with
+the customer's message as its input and the reply as its output.
 
 **Decisions and trade-offs:** Tracing lives in the one wrapper every call goes
 through, so no feature needs its own code. On Vercel spans are sent at once,
